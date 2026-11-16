@@ -56,6 +56,21 @@ textarea:focus { outline: none; border-color: #2b6cb0; }
 .tools button { flex: 1; min-width: 130px; border: 2px solid #cbd5e0; background: #fff; border-radius: 10px; padding: 10px; font-weight: 600; font-size: .85rem; cursor: pointer; color: #2d3748; }
 .tools button.danger { color: #c53030; border-color: #feb2b2; }
 .note-foot { font-size: .75rem; color: #718096; margin-top: 14px; line-height: 1.4; }
+.attesa { background: #fffaf0; border-left: 5px solid #ed8936; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.attesa small { color: #9c4221; text-transform: uppercase; letter-spacing: .5px; font-size: .7rem; font-weight: 700; }
+.attesa .p { font-size: .88rem; margin-top: 6px; }
+.attesa .p span { display: block; font-size: .72rem; color: #718096; }
+.b-wait { background: #feebc8; color: #9c4221; }
+.goal { padding: 8px 14px; font-size: .8rem; color: #4a5568; border-top: 1px solid #edf2f7; background: #f8fafc; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.goal input[type=date] { border: 2px solid #e2e8f0; border-radius: 8px; padding: 4px 6px; font: inherit; font-size: .82rem; background: #fff; }
+.strow { margin: 6px 0 0 32px; display: flex; gap: 8px; align-items: center; }
+select.st { border: none; border-radius: 99px; padding: 3px 8px; font: inherit; font-size: .74rem; font-weight: 600; cursor: pointer; appearance: auto; }
+.st-todo { background: #edf2f7; color: #4a5568; }
+.st-sent { background: #bee3f8; color: #2c5282; }
+.st-waiting { background: #feebc8; color: #9c4221; }
+.st-confirmed { background: #b2f5ea; color: #234e52; }
+.st-done { background: #c6f6d5; color: #276749; }
+.since { font-size: .72rem; color: #718096; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2d3748; color: #fff; padding: 10px 18px; border-radius: 99px; font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 50; }
 .toast.show { opacity: 1; }
 </style>
@@ -68,6 +83,7 @@ textarea:focus { outline: none; border-color: #2b6cb0; }
 </header>
 <main>
   <div class="next" id="next"></div>
+  <div class="attesa" id="attesa" style="display:none"></div>
   <div id="sections"></div>
   <div class="tools">
     <button id="btnExp">⬇️ Esporta dati</button>
@@ -134,11 +150,23 @@ const SEZIONI = [
 
 // ── STATO ────────────────────────────────────────────────────────────────────
 const KEY = 'checklist-auto-golf-v1';
-let st = { done: {}, notes: {}, custom: {}, open: {}, noteOpen: {} };
+let st = { done: {}, notes: {}, custom: {}, open: {}, noteOpen: {}, stato: {}, date: {} };
 try { const r = JSON.parse(localStorage.getItem(KEY) || 'null'); if (r) st = Object.assign(st, r); } catch (e) {}
 function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmtData = ts => new Date(ts).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+const fmtIso = iso => { const [y, m, d] = iso.split('-'); return `${d}/${m}`; };
+
+const STATI = [
+  ['todo', 'Da fare'], ['sent', 'Richiesta inviata'], ['waiting', 'In attesa di risposta'],
+  ['confirmed', 'Confermato'], ['done', 'Completato']
+];
+function statoDi(id) { return st.done[id] ? 'done' : ((st.stato[id] && st.stato[id].s) || 'todo'); }
+function impostaStato(id, v) {
+  if (v === 'done') { st.done[id] = Date.now(); delete st.stato[id]; }
+  else { delete st.done[id]; if (v === 'todo') delete st.stato[id]; else st.stato[id] = { s: v, ts: Date.now() }; }
+}
+function dataObiettivo(sez) { return st.date[sez.id] !== undefined ? st.date[sez.id] : sez.scadenza; }
 
 function vociDi(sez) {
   const base = sez.voci.map((t, i) => ({ id: `${sez.id}-${i + 1}`, testo: t, custom: false }));
@@ -153,25 +181,35 @@ function giorniA(iso) {
 
 // ── RENDER ───────────────────────────────────────────────────────────────────
 function render() {
-  let tot = 0, fatte = 0, prossima = null;
+  let tot = 0, fatte = 0, prossima = null, primaPending = null;
+  const pending = [];
   const html = SEZIONI.map((sez, idx) => {
     const voci = vociDi(sez);
     const n = voci.length, f = voci.filter(v => st.done[v.id]).length;
     tot += n; fatte += f;
     const completa = n > 0 && f === n;
-    if (!completa && !prossima) { const v = voci.find(v => !st.done[v.id]); if (v) prossima = { sez, v }; }
+    voci.forEach(v => {
+      const s = statoDi(v.id);
+      if ((s === 'sent' || s === 'waiting')) pending.push({ sez, v, info: st.stato[v.id] });
+      if (!prossima && !completa && (s === 'todo' || s === 'confirmed')) prossima = { sez, v };
+    });
+    const obiettivo = dataObiettivo(sez);
     let badge = '';
     if (completa) badge = '<span class="badge b-ok">✓ Completata</span>';
-    else if (sez.scadenza) {
-      const g = giorniA(sez.scadenza);
-      if (g < 0) badge = `<span class="badge b-late">Scaduta da ${-g} ${-g === 1 ? 'giorno' : 'giorni'}</span>`;
-      else if (g === 0) badge = '<span class="badge b-late">Scade oggi</span>';
-      else if (g <= 3) badge = `<span class="badge b-soon">Tra ${g} ${g === 1 ? 'giorno' : 'giorni'}</span>`;
-      else badge = `<span class="badge b-neutral">Tra ${g} giorni</span>`;
+    else if (obiettivo) {
+      const g = giorniA(obiettivo);
+      const et = `Obiettivo ${fmtIso(obiettivo)}`;
+      if (g < 0) badge = `<span class="badge b-late">${et} · superato da ${-g} ${-g === 1 ? 'giorno' : 'giorni'}</span>`;
+      else if (g === 0) badge = `<span class="badge b-late">${et} · oggi</span>`;
+      else if (g <= 3) badge = `<span class="badge b-soon">${et} · tra ${g} ${g === 1 ? 'giorno' : 'giorni'}</span>`;
+      else badge = `<span class="badge b-neutral">${et} · tra ${g} giorni</span>`;
     }
+    const nAtt = voci.filter(v => ['sent', 'waiting'].includes(statoDi(v.id))).length;
     const items = voci.map(v => {
       const chk = !!st.done[v.id];
+      const sv = statoDi(v.id);
       const nota = st.notes[v.id] || '';
+      const info = st.stato[v.id];
       return `<li class="item ${chk ? 'checked' : ''}">
         <div class="row">
           <input type="checkbox" id="c-${v.id}" data-id="${v.id}" ${chk ? 'checked' : ''}>
@@ -179,7 +217,8 @@ function render() {
           <button class="ic ${nota ? 'has' : ''}" data-note="${v.id}" title="Nota">📝</button>
           ${v.custom ? `<button class="ic" data-del="${sez.id}|${v.id}" title="Elimina voce">🗑️</button>` : ''}
         </div>
-        ${(st.noteOpen[v.id] || nota) && st.noteOpen[v.id] ? `<textarea data-ta="${v.id}" placeholder="Nota (contatto, risposta ricevuta, numero di telefono…)">${esc(nota)}</textarea>` : (nota ? `<div style="font-size:.8rem;color:#4a5568;margin-top:6px;white-space:pre-wrap">📝 ${esc(nota)}</div>` : '')}
+        <div class="strow"><select class="st st-${sv}" data-st="${v.id}">${STATI.map(([k, l]) => `<option value="${k}" ${k === sv ? 'selected' : ''}>${l}</option>`).join('')}</select>${info && !chk ? `<span class="since">dal ${fmtData(info.ts)}</span>` : ''}</div>
+        ${st.noteOpen[v.id] ? `<textarea data-ta="${v.id}" placeholder="Nota (contatto, risposta ricevuta, numero di telefono…)">${esc(nota)}</textarea>` : (nota ? `<div style="font-size:.8rem;color:#4a5568;margin-top:6px;white-space:pre-wrap">📝 ${esc(nota)}</div>` : '')}
       </li>`;
     }).join('');
     const aperta = st.open[sez.id] !== undefined ? st.open[sez.id] : false;
@@ -188,30 +227,41 @@ function render() {
         <div class="num">${completa ? '✓' : idx + 1}</div>
         <div class="sh">
           <div class="name">${esc(sez.titolo)}</div>
-          <div class="meta"><span>${esc(sez.periodo)}</span>${badge}<span>${f}/${n}</span></div>
+          <div class="meta"><span>Previsto: ${esc(sez.periodo)}</span>${badge}<span>${f}/${n}</span>${nAtt ? `<span class="badge b-wait">⏳ ${nAtt} in attesa</span>` : ''}</div>
         </div>
         <div class="chev">▾</div>
       </summary>
+      <div class="goal">🎯 Obiettivo (data tua, non una scadenza di legge):
+        <input type="date" data-date="${sez.id}" value="${obiettivo || ''}">
+        <button class="ic" data-datereset="${sez.id}" title="Ripristina la data prevista">↺</button>
+      </div>
       <ul class="items">${items}</ul>
       <div class="add"><input type="text" placeholder="Aggiungi una voce…" data-addin="${sez.id}"><button data-add="${sez.id}">+</button></div>
     </details>`;
   }).join('');
   document.getElementById('sections').innerHTML = html;
   const pct = tot ? Math.round(fatte / tot * 100) : 0;
-  document.getElementById('progTxt').textContent = `${fatte} di ${tot} passaggi completati (${pct}%)`;
+  document.getElementById('progTxt').textContent = `${fatte} di ${tot} passaggi completati (${pct}%)` + (pending.length ? ` · ${pending.length} in attesa di risposta` : '');
   document.getElementById('progBar').style.width = pct + '%';
   const nx = document.getElementById('next');
-  if (prossima) nx.innerHTML = `<small>Prossimo passo</small><div class="t">${esc(prossima.v.testo)}</div><div class="s">${esc(prossima.sez.titolo)} · ${esc(prossima.sez.periodo)}</div>`;
+  if (prossima) nx.innerHTML = `<small>Prossimo passo</small><div class="t">${esc(prossima.v.testo)}</div><div class="s">${esc(prossima.sez.titolo)}</div>`;
+  else if (pending.length) nx.innerHTML = '<small>Prossimo passo</small><div class="t">Niente da fare ora: attendi le risposte qui sotto</div>';
   else nx.innerHTML = '<small>Fatto</small><div class="t">🎉 Tutti i passaggi sono completati</div>';
+  const at = document.getElementById('attesa');
+  if (pending.length) {
+    at.style.display = 'block';
+    at.innerHTML = `<small>⏳ In attesa di risposta (${pending.length})</small>` + pending.map(p =>
+      `<div class="p">${esc(p.v.testo)}<span>${esc(p.sez.titolo)}${p.info ? ' · dal ' + fmtData(p.info.ts) : ''}</span></div>`).join('');
+  } else at.style.display = 'none';
 }
 
 // ── EVENTI ───────────────────────────────────────────────────────────────────
 const root = document.getElementById('sections');
 root.addEventListener('change', e => {
-  const id = e.target.dataset && e.target.dataset.id;
-  if (!id) return;
-  if (e.target.checked) st.done[id] = Date.now(); else delete st.done[id];
-  save(); render();
+  const t = e.target;
+  if (t.dataset.id) { impostaStato(t.dataset.id, t.checked ? 'done' : 'todo'); save(); render(); }
+  else if (t.dataset.st) { impostaStato(t.dataset.st, t.value); save(); render(); }
+  else if (t.dataset.date !== undefined) { st.date[t.dataset.date] = t.value; save(); render(); }
 });
 root.addEventListener('toggle', e => {
   const d = e.target; if (d.tagName !== 'DETAILS') return;
@@ -221,10 +271,11 @@ root.addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.note) { st.noteOpen[b.dataset.note] = !st.noteOpen[b.dataset.note]; save(); render(); }
   else if (b.dataset.add) aggiungi(b.dataset.add);
+  else if (b.dataset.datereset) { delete st.date[b.dataset.datereset]; save(); render(); toast('Data prevista ripristinata'); }
   else if (b.dataset.del) {
     const [sid, vid] = b.dataset.del.split('|');
     st.custom[sid] = (st.custom[sid] || []).filter(c => c.id !== vid);
-    delete st.done[vid]; delete st.notes[vid]; save(); render(); toast('Voce eliminata');
+    delete st.done[vid]; delete st.notes[vid]; delete st.stato[vid]; save(); render(); toast('Voce eliminata');
   }
 });
 root.addEventListener('input', e => {
@@ -244,7 +295,7 @@ function toast(msg) {
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-// ── ESPORTA / IMPORTA / AZZERA ───────────────────────────────────────────────
+// ── ESPORTA / IMPORTA (con anteprima) / AZZERA ───────────────────────────────
 document.getElementById('btnExp').onclick = () => {
   const blob = new Blob([JSON.stringify(st, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -258,12 +309,22 @@ document.getElementById('file').onchange = ev => {
   r.onload = () => {
     try {
       const x = JSON.parse(r.result);
-      Object.keys(x.done || {}).forEach(k => { if (!st.done[k] || x.done[k] > st.done[k]) st.done[k] = x.done[k]; });
-      Object.keys(x.notes || {}).forEach(k => { if (!st.notes[k]) st.notes[k] = x.notes[k]; else if (!st.notes[k].includes(x.notes[k])) st.notes[k] += '\n' + x.notes[k]; });
-      Object.keys(x.custom || {}).forEach(s => {
+      const xd = x.done || {}, xn = x.notes || {}, xc = x.custom || {}, xs = x.stato || {}, xdt = x.date || {};
+      const nDone = Object.keys(xd).filter(k => !st.done[k]).length;
+      const nNote = Object.keys(xn).filter(k => xn[k] && (!st.notes[k] || !st.notes[k].includes(xn[k]))).length;
+      let nVoci = 0; Object.keys(xc).forEach(s => xc[s].forEach(c => { if (!(st.custom[s] || []).some(o => o.id === c.id)) nVoci++; }));
+      const nSt = Object.keys(xs).filter(k => !xd[k] && !st.done[k] && (!st.stato[k] || xs[k].ts > st.stato[k].ts)).length;
+      const nDate = Object.keys(xdt).filter(k => st.date[k] === undefined).length;
+      const msg = `Anteprima importazione (nulla viene cancellato):\n• ${nDone} nuove spunte\n• ${nSt} stati aggiornati\n• ${nNote} note nuove o da unire\n• ${nVoci} voci aggiunte\n• ${nDate} date obiettivo nuove\n\nVuoi procedere?`;
+      if (!confirm(msg)) { ev.target.value = ''; return; }
+      Object.keys(xd).forEach(k => { if (!st.done[k] || xd[k] > st.done[k]) st.done[k] = xd[k]; delete st.stato[k]; });
+      Object.keys(xn).forEach(k => { if (!st.notes[k]) st.notes[k] = xn[k]; else if (!st.notes[k].includes(xn[k])) st.notes[k] += '\n' + xn[k]; });
+      Object.keys(xc).forEach(s => {
         st.custom[s] = st.custom[s] || [];
-        x.custom[s].forEach(c => { if (!st.custom[s].some(o => o.id === c.id)) st.custom[s].push(c); });
+        xc[s].forEach(c => { if (!st.custom[s].some(o => o.id === c.id)) st.custom[s].push(c); });
       });
+      Object.keys(xs).forEach(k => { if (!st.done[k] && (!st.stato[k] || xs[k].ts > st.stato[k].ts)) st.stato[k] = xs[k]; });
+      Object.keys(xdt).forEach(k => { if (st.date[k] === undefined) st.date[k] = xdt[k]; });
       save(); render(); toast('Dati importati e uniti');
     } catch (err) { toast('File non valido'); }
     ev.target.value = '';
@@ -271,8 +332,8 @@ document.getElementById('file').onchange = ev => {
   r.readAsText(f);
 };
 document.getElementById('btnReset').onclick = () => {
-  if (!confirm('Togliere tutte le spunte? Note e voci aggiunte restano.')) return;
-  st.done = {}; save(); render(); toast('Spunte azzerate');
+  if (!confirm('Togliere tutte le spunte e gli stati? Note, date e voci aggiunte restano.')) return;
+  st.done = {}; st.stato = {}; save(); render(); toast('Spunte azzerate');
 };
 
 // Apre la prima sezione non completa al primo avvio
