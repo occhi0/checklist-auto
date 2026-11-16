@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Checklist Auto – Rimpatrio Golf</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#2b6cb0" />
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: #f0f4f8; color: #1a202c; padding-bottom: 60px; }
+header { background: #2b6cb0; color: #fff; padding: 16px 16px 14px; position: sticky; top: 0; z-index: 10; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+header h1 { font-size: 1.25rem; }
+.prog-txt { font-size: .85rem; margin-top: 6px; opacity: .95; }
+.bar { height: 8px; background: rgba(255,255,255,.3); border-radius: 99px; margin-top: 6px; overflow: hidden; }
+.bar > div { height: 100%; background: #68d391; border-radius: 99px; transition: width .25s; }
+main { max-width: 720px; margin: 0 auto; padding: 14px 12px; }
+.next { background: #fff; border-left: 5px solid #f6ad55; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.next small { color: #718096; text-transform: uppercase; letter-spacing: .5px; font-size: .7rem; }
+.next .t { font-weight: 600; margin-top: 3px; }
+.next .s { font-size: .8rem; color: #4a5568; margin-top: 2px; }
+details { background: #fff; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); overflow: hidden; }
+details.done { opacity: .75; }
+summary { list-style: none; cursor: pointer; padding: 14px; display: flex; gap: 10px; align-items: flex-start; }
+summary::-webkit-details-marker { display: none; }
+.num { flex: 0 0 28px; height: 28px; border-radius: 50%; background: #2b6cb0; color: #fff; font-weight: 700; font-size: .85rem; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+details.done .num { background: #38a169; }
+.sh { flex: 1; min-width: 0; }
+.sh .name { font-weight: 700; font-size: .95rem; line-height: 1.25; }
+.sh .meta { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .75rem; color: #4a5568; }
+.badge { padding: 2px 8px; border-radius: 99px; font-weight: 600; font-size: .72rem; }
+.b-ok { background: #c6f6d5; color: #276749; }
+.b-soon { background: #feebc8; color: #9c4221; }
+.b-late { background: #fed7d7; color: #9b2c2c; }
+.b-neutral { background: #edf2f7; color: #4a5568; }
+.chev { color: #a0aec0; transition: transform .2s; align-self: center; }
+details[open] .chev { transform: rotate(180deg); }
+ul.items { list-style: none; border-top: 1px solid #edf2f7; }
+.item { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; }
+.item:last-child { border-bottom: none; }
+.row { display: flex; gap: 10px; align-items: flex-start; }
+.row input[type=checkbox] { width: 22px; height: 22px; flex: 0 0 22px; margin-top: 1px; accent-color: #38a169; }
+.row label { flex: 1; font-size: .92rem; line-height: 1.35; }
+.item.checked label { text-decoration: line-through; color: #a0aec0; }
+.done-at { display: block; font-size: .7rem; color: #38a169; text-decoration: none; margin-top: 2px; }
+.ic { border: none; background: none; font-size: 1.05rem; padding: 2px 4px; cursor: pointer; opacity: .55; }
+.ic.has { opacity: 1; }
+textarea { width: 100%; margin-top: 8px; border: 2px solid #e2e8f0; border-radius: 10px; padding: 8px; font: inherit; font-size: .88rem; min-height: 60px; resize: vertical; }
+textarea:focus { outline: none; border-color: #2b6cb0; }
+.add { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid #edf2f7; background: #f8fafc; }
+.add input { flex: 1; min-width: 0; border: 2px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; font-size: .88rem; }
+.add button { border: none; background: #2b6cb0; color: #fff; border-radius: 10px; padding: 0 14px; font-weight: 700; cursor: pointer; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.tools button { flex: 1; min-width: 130px; border: 2px solid #cbd5e0; background: #fff; border-radius: 10px; padding: 10px; font-weight: 600; font-size: .85rem; cursor: pointer; color: #2d3748; }
+.tools button.danger { color: #c53030; border-color: #feb2b2; }
+.note-foot { font-size: .75rem; color: #718096; margin-top: 14px; line-height: 1.4; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2d3748; color: #fff; padding: 10px 18px; border-radius: 99px; font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 50; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🚗 Auto – Rimpatrio Golf</h1>
+  <div class="prog-txt" id="progTxt"></div>
+  <div class="bar"><div id="progBar" style="width:0%"></div></div>
+</header>
+<main>
+  <div class="next" id="next"></div>
+  <div id="sections"></div>
+  <div class="tools">
+    <button id="btnExp">⬇️ Esporta dati</button>
+    <button id="btnImp">⬆️ Importa dati</button>
+    <button id="btnReset" class="danger">↺ Azzera spunte</button>
+  </div>
+  <input type="file" id="file" accept="application/json" style="display:none" />
+  <p class="note-foot">I dati restano salvati su questo dispositivo (nel browser). Per portarli su un altro dispositivo usa Esporta e Importa: l'importazione unisce i dati senza cancellare quelli esistenti.</p>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATI DELLA CHECKLIST ─────────────────────────────────────────────────────
+const SEZIONI = [
+  { id: 's1', titolo: 'Assicurazione svizzera', periodo: '16–20 novembre 2026', scadenza: '2026-11-20', voci: [
+    'Contattare l\'assicurazione svizzera',
+    'Richiedere attestato RC elettronico per targhe turistiche provvisorie',
+    'Confrontare copertura fino a febbraio/marzo 2027 e verificare validità in Italia',
+    'Verificare che l\'attestato sia trasmesso a Camorino',
+    'Non disdire ancora la polizza ordinaria' ] },
+  { id: 's2', titolo: 'Motorizzazioni di Como e Foggia', periodo: '16–25 novembre 2026', scadenza: '2026-11-25', voci: [
+    'Chiedere a Como la visita e prova ex art. 75 per nazionalizzazione',
+    'Verificare se Como rilascia il certificato di approvazione DGM 405 utilizzabile a Foggia',
+    'Chiedere a Foggia conferma dell\'accettazione del certificato',
+    'Verificare documenti, COC, traduzioni e apostille richiesti',
+    'Richiedere un appuntamento per la visita e prova entro il 15 dicembre' ] },
+  { id: 's3', titolo: 'Dogana e documentazione', periodo: '20–30 novembre 2026', scadenza: '2026-11-30', voci: [
+    'Contattare la Dogana di Ponte Chiasso e concordare l\'importazione in franchigia',
+    'Preparare certificato storico di residenza italiana dal 21/09/2026',
+    'Preparare certificato di partenza e precedente residenza svizzera',
+    'Preparare prova di proprietà e uso dell\'auto da almeno 6 mesi prima del trasferimento',
+    'Verificare la procedura di esportazione svizzera e gli eventuali documenti dello spedizioniere' ] },
+  { id: 's4', titolo: 'Sezione della circolazione – Camorino', periodo: '1–10 dicembre 2026', scadenza: '2026-12-10', voci: [
+    'Portare licenza di circolazione svizzera, targhe TI e documento d\'identità',
+    'Richiedere targhe turistiche provvisorie d\'esportazione',
+    'Ottenere nuova licenza provvisoria e conferma della copertura RC',
+    'Richiedere nulla osta e scheda tecnica se necessaria',
+    'Conservare la precedente licenza annullata e tutti i documenti originali' ] },
+  { id: 's5', titolo: 'Apostille – Bellinzona', periodo: 'Subito dopo Camorino', scadenza: null, voci: [
+    'Portare i documenti definitivi alla Cancelleria dello Stato',
+    'Far apostillare i documenti richiesti dalla Motorizzazione',
+    'Controllare che nomi, numero di telaio e dati tecnici siano corretti',
+    'Conservare originali e copie digitali' ] },
+  { id: 's6', titolo: 'Dogana – Ponte Chiasso', periodo: 'Prima del 15 dicembre 2026', scadenza: '2026-12-15', voci: [
+    'Presentare l\'auto e la documentazione per l\'esportazione svizzera',
+    'Completare l\'importazione italiana in franchigia per trasferimento di residenza',
+    'Ottenere e controllare il documento doganale di importazione',
+    'Conservare ricevute, dichiarazioni e documenti di svincolo' ] },
+  { id: 's7', titolo: 'Visita e prova – Como', periodo: 'Prima del viaggio a Foggia, se prenotata', scadenza: null, voci: [
+    'Portare la Golf alla visita e prova ex art. 75',
+    'Presentare documentazione tecnica e doganale richiesta',
+    'Ottenere esito favorevole e certificato di approvazione per Foggia' ] },
+  { id: 's8', titolo: 'Trasferimento a Foggia', periodo: 'Entro il 15 dicembre 2026', scadenza: '2026-12-15', voci: [
+    'Verificare con le autorità italiane che la circolazione con targhe provvisorie sia consentita per un residente italiano',
+    'Verificare assicurazione e documenti per il tragitto, oppure prenotare una bisarca',
+    'Trasferire la Golf a Foggia e custodirla senza circolare se non ancora regolarmente immatricolata' ] },
+  { id: 's9', titolo: 'Immatricolazione – Foggia', periodo: 'Obiettivo entro il 21 dicembre 2026', scadenza: '2026-12-21', voci: [
+    'Presentare certificato di approvazione di Como e documentazione doganale',
+    'Completare domanda di immatricolazione e iscrizione PRA',
+    'Pagare IPT e altri oneri',
+    'Ottenere Documento Unico e targhe italiane',
+    'Attivare assicurazione italiana e sistemare la cessazione della copertura svizzera' ] }
+];
+
+// ── STATO ────────────────────────────────────────────────────────────────────
+const KEY = 'checklist-auto-golf-v1';
+let st = { done: {}, notes: {}, custom: {}, open: {}, noteOpen: {} };
+try { const r = JSON.parse(localStorage.getItem(KEY) || 'null'); if (r) st = Object.assign(st, r); } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtData = ts => new Date(ts).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+
+function vociDi(sez) {
+  const base = sez.voci.map((t, i) => ({ id: `${sez.id}-${i + 1}`, testo: t, custom: false }));
+  const extra = (st.custom[sez.id] || []).map(c => ({ id: c.id, testo: c.testo, custom: true }));
+  return base.concat(extra);
+}
+function giorniA(iso) {
+  const oggi = new Date(); oggi.setHours(0, 0, 0, 0);
+  const [y, m, d] = iso.split('-').map(Number);
+  return Math.round((new Date(y, m - 1, d) - oggi) / 86400000);
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function render() {
+  let tot = 0, fatte = 0, prossima = null;
+  const html = SEZIONI.map((sez, idx) => {
+    const voci = vociDi(sez);
+    const n = voci.length, f = voci.filter(v => st.done[v.id]).length;
+    tot += n; fatte += f;
+    const completa = n > 0 && f === n;
+    if (!completa && !prossima) { const v = voci.find(v => !st.done[v.id]); if (v) prossima = { sez, v }; }
+    let badge = '';
+    if (completa) badge = '<span class="badge b-ok">✓ Completata</span>';
+    else if (sez.scadenza) {
+      const g = giorniA(sez.scadenza);
+      if (g < 0) badge = `<span class="badge b-late">Scaduta da ${-g} ${-g === 1 ? 'giorno' : 'giorni'}</span>`;
+      else if (g === 0) badge = '<span class="badge b-late">Scade oggi</span>';
+      else if (g <= 3) badge = `<span class="badge b-soon">Tra ${g} ${g === 1 ? 'giorno' : 'giorni'}</span>`;
+      else badge = `<span class="badge b-neutral">Tra ${g} giorni</span>`;
+    }
+    const items = voci.map(v => {
+      const chk = !!st.done[v.id];
+      const nota = st.notes[v.id] || '';
+      return `<li class="item ${chk ? 'checked' : ''}">
+        <div class="row">
+          <input type="checkbox" id="c-${v.id}" data-id="${v.id}" ${chk ? 'checked' : ''}>
+          <label for="c-${v.id}">${esc(v.testo)}${chk ? `<span class="done-at">✓ fatto il ${fmtData(st.done[v.id])}</span>` : ''}</label>
+          <button class="ic ${nota ? 'has' : ''}" data-note="${v.id}" title="Nota">📝</button>
+          ${v.custom ? `<button class="ic" data-del="${sez.id}|${v.id}" title="Elimina voce">🗑️</button>` : ''}
+        </div>
+        ${(st.noteOpen[v.id] || nota) && st.noteOpen[v.id] ? `<textarea data-ta="${v.id}" placeholder="Nota (contatto, risposta ricevuta, numero di telefono…)">${esc(nota)}</textarea>` : (nota ? `<div style="font-size:.8rem;color:#4a5568;margin-top:6px;white-space:pre-wrap">📝 ${esc(nota)}</div>` : '')}
+      </li>`;
+    }).join('');
+    const aperta = st.open[sez.id] !== undefined ? st.open[sez.id] : false;
+    return `<details data-sez="${sez.id}" class="${completa ? 'done' : ''}" ${aperta ? 'open' : ''}>
+      <summary>
+        <div class="num">${completa ? '✓' : idx + 1}</div>
+        <div class="sh">
+          <div class="name">${esc(sez.titolo)}</div>
+          <div class="meta"><span>${esc(sez.periodo)}</span>${badge}<span>${f}/${n}</span></div>
+        </div>
+        <div class="chev">▾</div>
+      </summary>
+      <ul class="items">${items}</ul>
+      <div class="add"><input type="text" placeholder="Aggiungi una voce…" data-addin="${sez.id}"><button data-add="${sez.id}">+</button></div>
+    </details>`;
+  }).join('');
+  document.getElementById('sections').innerHTML = html;
+  const pct = tot ? Math.round(fatte / tot * 100) : 0;
+  document.getElementById('progTxt').textContent = `${fatte} di ${tot} passaggi completati (${pct}%)`;
+  document.getElementById('progBar').style.width = pct + '%';
+  const nx = document.getElementById('next');
+  if (prossima) nx.innerHTML = `<small>Prossimo passo</small><div class="t">${esc(prossima.v.testo)}</div><div class="s">${esc(prossima.sez.titolo)} · ${esc(prossima.sez.periodo)}</div>`;
+  else nx.innerHTML = '<small>Fatto</small><div class="t">🎉 Tutti i passaggi sono completati</div>';
+}
+
+// ── EVENTI ───────────────────────────────────────────────────────────────────
+const root = document.getElementById('sections');
+root.addEventListener('change', e => {
+  const id = e.target.dataset && e.target.dataset.id;
+  if (!id) return;
+  if (e.target.checked) st.done[id] = Date.now(); else delete st.done[id];
+  save(); render();
+});
+root.addEventListener('toggle', e => {
+  const d = e.target; if (d.tagName !== 'DETAILS') return;
+  st.open[d.dataset.sez] = d.open; save();
+}, true);
+root.addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.note) { st.noteOpen[b.dataset.note] = !st.noteOpen[b.dataset.note]; save(); render(); }
+  else if (b.dataset.add) aggiungi(b.dataset.add);
+  else if (b.dataset.del) {
+    const [sid, vid] = b.dataset.del.split('|');
+    st.custom[sid] = (st.custom[sid] || []).filter(c => c.id !== vid);
+    delete st.done[vid]; delete st.notes[vid]; save(); render(); toast('Voce eliminata');
+  }
+});
+root.addEventListener('input', e => {
+  if (e.target.dataset.ta) { st.notes[e.target.dataset.ta] = e.target.value; save(); }
+});
+root.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.dataset.addin) aggiungi(e.target.dataset.addin);
+});
+function aggiungi(sid) {
+  const inp = root.querySelector(`input[data-addin="${sid}"]`);
+  const t = inp.value.trim(); if (!t) return;
+  (st.custom[sid] = st.custom[sid] || []).push({ id: `${sid}-c${Date.now()}`, testo: t });
+  st.open[sid] = true; save(); render();
+}
+function toast(msg) {
+  const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── ESPORTA / IMPORTA / AZZERA ───────────────────────────────────────────────
+document.getElementById('btnExp').onclick = () => {
+  const blob = new Blob([JSON.stringify(st, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `checklist-auto-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Dati esportati');
+};
+document.getElementById('btnImp').onclick = () => document.getElementById('file').click();
+document.getElementById('file').onchange = ev => {
+  const f = ev.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const x = JSON.parse(r.result);
+      Object.keys(x.done || {}).forEach(k => { if (!st.done[k] || x.done[k] > st.done[k]) st.done[k] = x.done[k]; });
+      Object.keys(x.notes || {}).forEach(k => { if (!st.notes[k]) st.notes[k] = x.notes[k]; else if (!st.notes[k].includes(x.notes[k])) st.notes[k] += '\n' + x.notes[k]; });
+      Object.keys(x.custom || {}).forEach(s => {
+        st.custom[s] = st.custom[s] || [];
+        x.custom[s].forEach(c => { if (!st.custom[s].some(o => o.id === c.id)) st.custom[s].push(c); });
+      });
+      save(); render(); toast('Dati importati e uniti');
+    } catch (err) { toast('File non valido'); }
+    ev.target.value = '';
+  };
+  r.readAsText(f);
+};
+document.getElementById('btnReset').onclick = () => {
+  if (!confirm('Togliere tutte le spunte? Note e voci aggiunte restano.')) return;
+  st.done = {}; save(); render(); toast('Spunte azzerate');
+};
+
+// Apre la prima sezione non completa al primo avvio
+if (Object.keys(st.open).length === 0) {
+  for (const s of SEZIONI) { const v = vociDi(s); if (!v.every(x => st.done[x.id])) { st.open[s.id] = true; break; } }
+}
+render();
+</script>
+</body>
+</html>
